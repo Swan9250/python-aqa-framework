@@ -15,5 +15,21 @@ def test_open_main_page(browser):
     assert main_page.get_logo().is_displayed(), "Logo is not displayed"
 ```
 
+## Simple API test
+
+```python
+def test_location_regions(auth_header, endpoints, attach_info):
+    with allure.step("Send request to API"):
+        response = requests.get(
+            url=endpoints.regions(),
+            headers=auth_header,
+            timeout=DEFAULT_REQUEST_TIMEOUT_S,
+        )
+    with allure.step("Check Status Code < 400"):
+        assert response.ok
+
+    attach_info(response)
+```
+
 ## Allure report example
 <img width="1918" height="952" alt="Снимок экрана от 2025-09-09 17-06-21" src="https://github.com/user-attachments/assets/e744098a-4638-4c6f-9490-bd1abb2f8339" />
