@@ -1,4 +1,13 @@
-# python-aqa-framework
+# Python AQA tests
+
+Проект демонстирует мои навыки автоматизации тестирования на Python.
+Здесь собраны примеры тестов API/UI/whatever, а также некоторые вспомогательные абстракции.
+
+## Стек технологий
+* pytest
+* requests
+* allure
+* selenium
 
 ## Simple UI test
 
