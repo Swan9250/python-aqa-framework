@@ -1,0 +1,116 @@
+import allure
+import pytest
+import requests
+from data_classes.delivery_point import DeliveryPoint
+from enums.city import City
+from enums.country_code import CountryCode
+from tests.api.constants import DEFAULT_REQUEST_TIMEOUT_S
+
+
+@allure.feature("CDEK API Tests")
+@allure.story("Status Code Validation")
+@allure.title("Check suggest cities response is ok")
+@pytest.mark.parametrize("city", [city.value for city in City])
+def test_location_suggest_cities(auth_header, endpoints, city, attach_info):
+    with allure.step("Send request to API"):
+        response = requests.get(
+            url=endpoints.suggest_cities(),
+            headers=auth_header,
+            params={"name": city},
+            timeout=DEFAULT_REQUEST_TIMEOUT_S,
+        )
+    with allure.step("Check Status Code < 400"):
+        assert response.ok
+
+    attach_info(response)
+
+
+def test_location_regions(auth_header, endpoints, attach_info):
+    with allure.step("Send request to API"):
+        response = requests.get(
+            url=endpoints.regions(),
+            headers=auth_header,
+            timeout=DEFAULT_REQUEST_TIMEOUT_S,
+        )
+    with allure.step("Check Status Code < 400"):
+        assert response.ok
+
+    attach_info(response)
+
+
+def test_location_postal_codes(auth_header, endpoints, get_city_code, attach_info):
+    with allure.step("Send request to API"):
+        response = requests.get(
+            url=endpoints.postal_codes(),
+            headers=auth_header,
+            params={"code": get_city_code(City.EKATERINBURG.value)},
+            timeout=DEFAULT_REQUEST_TIMEOUT_S,
+        )
+    with allure.step("Check Status Code < 400"):
+        assert response.ok
+
+    attach_info(response)
+
+
+@pytest.mark.parametrize("postal_code", [180005])
+def test_location_cities(auth_header, endpoints, postal_code, attach_info):
+    with allure.step("Send request to API"):
+        response = requests.get(
+            url=endpoints.cities(),
+            headers=auth_header,
+            params={
+                "country_codes": [CountryCode.RU.value],
+                "postal_code": postal_code,
+            },
+            timeout=DEFAULT_REQUEST_TIMEOUT_S,
+        )
+    with allure.step("Check Status Code < 400"):
+        assert response.ok
+
+    attach_info(response)
+
+
+@pytest.mark.parametrize("delivery_point", [DeliveryPoint("PSK1", 180005, True)])
+def test_delivery_points(auth_header, endpoints, delivery_point, attach_info):
+    with allure.step("Send request to API"):
+        response = requests.get(
+            url=endpoints.delivery_points(),
+            headers=auth_header,
+            params={
+                "code": delivery_point.code,
+                "postal_code": delivery_point.postal_code,
+                "is_dressing_room": delivery_point.is_dressing_room,
+            },
+            timeout=DEFAULT_REQUEST_TIMEOUT_S,
+        )
+    with allure.step("Check Status Code < 400"):
+        assert response.ok
+
+    attach_info(response)
+
+
+@pytest.mark.parametrize(
+    "packages", [[{"weight": 300, "length": 30, "width": 50, "height": 20}]]
+)
+def test_calculate_plan(
+    auth_header, endpoints, get_delivery_points, packages, attach_info
+):
+    with allure.step("Collect data: location from, location to, packages"):
+        delivery_points = get_delivery_points(City.PSKOV.value)
+        from_location = delivery_points[0].get("location")
+        to_location = delivery_points[-1].get("location")
+    with allure.step("Send request to API"):
+        response = requests.post(
+            url=endpoints.tariff_list(),
+            headers=auth_header,
+            json={
+                "from_location": from_location,
+                "to_location": to_location,
+                "packages": packages,
+            },
+            timeout=DEFAULT_REQUEST_TIMEOUT_S,
+        )
+    with allure.step("Check Status Code < 400"):
+        assert response.ok
+
+    attach_info(response)

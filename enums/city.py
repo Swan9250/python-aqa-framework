@@ -5,3 +5,4 @@ class City(Enum):
     MOSCOW = "Москва"
     SAINT_PETERSBURG = "Санкт-Петербург"
     EKATERINBURG = "Екатеринбург"
+    PSKOV = "Псков"

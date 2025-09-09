@@ -1,0 +1,27 @@
+from yarl import URL
+
+
+class ApiUrls:
+    def __init__(self, base_url: URL) -> None:
+        self.base_url = base_url
+
+    def token(self) -> URL:
+        return self.base_url / "v2/oauth/token"
+
+    def suggest_cities(self) -> URL:
+        return self.base_url / "v2/location/suggest/cities"
+
+    def regions(self) -> URL:
+        return self.base_url / "v2/location/regions"
+
+    def postal_codes(self) -> URL:
+        return self.base_url / "v2/location/postalcodes"
+
+    def cities(self):
+        return self.base_url / "v2/location/cities"
+
+    def delivery_points(self):
+        return self.base_url / "v2/deliverypoints"
+
+    def tariff_list(self):
+        return self.base_url / "v2/calculator/tarifflist"
