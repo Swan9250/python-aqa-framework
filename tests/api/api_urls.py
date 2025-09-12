@@ -25,3 +25,21 @@ class ApiUrls:
 
     def tariff_list(self):
         return self.base_url / "v2/calculator/tarifflist"
+
+    def tariff(self):
+        return self.base_url / "v2/calculator/tariff"
+
+    def tariff_and_service(self):
+        return self.base_url / "v2/calculator/tariffAndService"
+
+    def all_tariffs(self):
+        return self.base_url / "v2/calculator/alltariffs"
+
+    def restrictions(self):
+        return self.base_url / "v2/international/package/restrictions"
+
+    def orders(self):
+        return self.base_url / "v2/orders"
+
+    def order(self, uuid):
+        return self.base_url / f"v2/orders/{uuid}"
