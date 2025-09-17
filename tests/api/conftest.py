@@ -1,42 +1,43 @@
 # pylint: disable=redefined-outer-name
+# pyright: reportArgumentType=false
 import json
 import os
 import random
+from typing import List
 import allure
 import pytest
 import requests
 from yarl import URL
+from database.db_session import ScopedSession, engine
+from database.models import OrderModel
+from database.repository import OrderRepository, TokenRepository
 from enums.region import Region
 from tests.api.api_urls import ApiUrls
 from tests.api.constants import DEFAULT_REQUEST_TIMEOUT_S
 
 
-API_URL = URL(os.getenv("API_BASE_URL"))
+@pytest.fixture(scope="session")
+def endpoints() -> ApiUrls:
+    base_url = URL(os.getenv("API_BASE_URL"))
+    return ApiUrls(base_url)
 
 
 @pytest.fixture(scope="session")
-def endpoints():
-    return ApiUrls(API_URL)
-
-
-@pytest.fixture(scope="session")
-def auth_header(endpoints: ApiUrls):
-    response = requests.post(
-        url=endpoints.token(),
-        params={
-            "grant_type": "client_credentials",
-            "client_id": os.getenv("ACCOUNT"),
-            "client_secret": os.getenv("PASSWORD"),
-        },
-        timeout=100,
-    )
-    token = response.json().get("access_token")
+def auth_header(endpoints: ApiUrls, token_repository: TokenRepository) -> dict:
+    token = token_repository.get_last_token()
+    if token is None:
+        response = requests.post(
+            url=endpoints.token(),
+            params={
+                "grant_type": "client_credentials",
+                "client_id": os.getenv("ACCOUNT"),
+                "client_secret": os.getenv("PASSWORD"),
+            },
+            timeout=DEFAULT_REQUEST_TIMEOUT_S,
+        )
+        token_repository.write_token(response.json())
+        token = response.json()["access_token"]
     return {"Authorization": f"Bearer {token}"}
-
-
-@pytest.fixture(scope="session")
-def api_url():
-    return API_URL
 
 
 @pytest.fixture
@@ -207,26 +208,33 @@ def get_order_uuid(
     packages,
     recipient,
     sender,
+    order_repository,
 ):
     def _get_order_uuid(city):
-        tariff_code = get_tariff_code(city)
-        delivery_points = get_delivery_points(city)
-        from_location = delivery_points[0].get("location")
-        to_location = delivery_points[-1].get("location")
-        return requests.post(
-            url=endpoints.orders(),
-            headers=auth_header,
-            json={
-                "type": 1,
-                "tariff_code": tariff_code,
-                "from_location": from_location,
-                "to_location": to_location,
-                "packages": packages,
-                "recipient": recipient,
-                "sender": sender,
-            },
-            timeout=DEFAULT_REQUEST_TIMEOUT_S,
-        ).json()["entity"]["uuid"]
+        last_order_uuid = ""
+        orders: List[OrderModel] = order_repository.get_all_orders()
+        if orders:
+            last_order_uuid = orders[0].uuid
+        else:
+            tariff_code = get_tariff_code(city)
+            delivery_points = get_delivery_points(city)
+            from_location = delivery_points[0].get("location")
+            to_location = delivery_points[-1].get("location")
+            last_order_uuid = requests.post(
+                url=endpoints.orders(),
+                headers=auth_header,
+                json={
+                    "type": 1,
+                    "tariff_code": tariff_code,
+                    "from_location": from_location,
+                    "to_location": to_location,
+                    "packages": packages,
+                    "recipient": recipient,
+                    "sender": sender,
+                },
+                timeout=DEFAULT_REQUEST_TIMEOUT_S,
+            ).json()["entity"]["uuid"]
+        return last_order_uuid
 
     return _get_order_uuid
 
@@ -253,3 +261,26 @@ def get_cdek_number(auth_header, endpoints):
         ).json()["entity"]["cdek_number"]
 
     return _get_cdek_number
+
+
+@pytest.fixture(scope="session")
+def db_session():
+    connection = engine.connect()
+
+    session = ScopedSession(bind=connection)
+
+    yield session
+
+    session.close()
+    connection.close()
+    ScopedSession.remove()
+
+
+@pytest.fixture(scope="session")
+def order_repository(db_session):
+    return OrderRepository(db_session)
+
+
+@pytest.fixture(scope="session")
+def token_repository(db_session):
+    return TokenRepository(db_session)

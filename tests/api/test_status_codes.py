@@ -26,6 +26,7 @@ def test_location_suggest_cities(auth_header, endpoints, city, attach_info):
     attach_info(response)
 
 
+@allure.title("Check get regions info response is ok")
 def test_location_regions(auth_header, endpoints, attach_info):
     with allure.step("Send request to API"):
         response = requests.get(
@@ -221,6 +222,7 @@ def test_register_order(
     packages,
     recipient,
     sender,
+    order_repository,
     attach_info,
 ):
     with allure.step("Collect data: tariff_code, location from, location to, packages"):
@@ -242,6 +244,12 @@ def test_register_order(
                 "sender": sender,
             },
             timeout=DEFAULT_REQUEST_TIMEOUT_S,
+        )
+        order_repository.create_order(
+            {
+                "uuid": response.json()["entity"]["uuid"],
+                "state": response.json()["requests"][0]["state"],
+            }
         )
 
     with allure.step("Check Status Code < 400"):
@@ -286,6 +294,43 @@ def test_get_orders(
             url=endpoints.orders(),
             headers=auth_header,
             params={"cdek_number": cdek_number},
+            timeout=DEFAULT_REQUEST_TIMEOUT_S,
+        )
+
+    with allure.step("Check Status Code < 400"):
+        assert response.ok
+
+    attach_info(response)
+
+
+def test_change_order(
+    auth_header,
+    endpoints,
+    get_tariff_code,
+    get_delivery_points,
+    packages,
+    recipient,
+    sender,
+    attach_info,
+):
+    with allure.step("Collect data: tariff_code, location from, location to, packages"):
+        tariff_code = get_tariff_code(City.MOSCOW.value)
+        delivery_points = get_delivery_points(City.MOSCOW.value)
+        from_location = delivery_points[0].get("location")
+        to_location = delivery_points[-1].get("location")
+    with allure.step("Send request to API"):
+        response = requests.post(
+            url=endpoints.orders(),
+            headers=auth_header,
+            json={
+                "type": 1,
+                "tariff_code": tariff_code,
+                "from_location": from_location,
+                "to_location": to_location,
+                "packages": packages,
+                "recipient": recipient,
+                "sender": sender,
+            },
             timeout=DEFAULT_REQUEST_TIMEOUT_S,
         )
 
