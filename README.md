@@ -8,6 +8,7 @@
 * requests
 * allure
 * selenium
+* sqlalchemy
 
 ## Simple UI test
 

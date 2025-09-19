@@ -3,14 +3,20 @@
 import json
 import os
 import random
-from typing import List
+from typing import Callable, List
 import allure
 import pytest
 import requests
 from yarl import URL
 from database.db_session import ScopedSession, engine
 from database.models import OrderModel
-from database.repository import OrderRepository, TokenRepository
+from database.repository import (
+    CityRepository,
+    OrderRepository,
+    PostalCodeRepository,
+    TokenRepository,
+)
+from enums.city import City
 from enums.region import Region
 from tests.api.api_urls import ApiUrls
 from tests.api.constants import DEFAULT_REQUEST_TIMEOUT_S
@@ -43,6 +49,11 @@ def auth_header(endpoints: ApiUrls, token_repository: TokenRepository) -> dict:
 @pytest.fixture
 def region():
     return random.choice(list(Region)).value
+
+
+@pytest.fixture
+def city():
+    return random.choice(list(City)).value
 
 
 @pytest.fixture
@@ -82,47 +93,53 @@ def attach_info():
 
 
 @pytest.fixture
-def get_city_code(auth_header, endpoints: ApiUrls):
-    def _get_city_code(city):
-        return (
-            requests.get(
+def get_city_code(
+    auth_header, endpoints: ApiUrls, city_repository: CityRepository
+) -> Callable[[str], int]:
+    def _get_city_code(city: str) -> int:
+        city_code = city_repository.get_code_by_city(city)
+        if city_code is None:
+            response = requests.get(
                 url=endpoints.suggest_cities(),
                 headers=auth_header,
                 params={"name": city},
                 timeout=100,
             )
-            .json()[0]
-            .get("code")
-        )
+            city_repository.write_city(response.json())
+            city_code = int(response.json()[0].get("code"))
+        return city_code
 
     return _get_city_code
 
 
 @pytest.fixture
-def get_postal_code(auth_header, endpoints: ApiUrls, get_city_code):
-    def _get_postal_code(city):
-        return (
-            requests.get(
-                url=endpoints.postal_codes(),
-                headers=auth_header,
-                params={"code": get_city_code(city)},
-                timeout=100,
-            )
-            .json()
-            .get("postal_codes")[0]
+def get_postal_code(auth_header, endpoints, postal_code_repository):
+    def _get_postal_code(city_code):
+        postal_codes: list = postal_code_repository.get_codes_by_city_code(city_code)
+        if postal_codes:
+            return random.choice(postal_codes)
+        response = requests.get(
+            url=endpoints.postal_codes(),
+            headers=auth_header,
+            params={"code": city_code},
+            timeout=DEFAULT_REQUEST_TIMEOUT_S,
         )
+        postal_code_repository.write_postal_code(response.json())
+        return random.choice(response.json()["postal_codes"])
 
     return _get_postal_code
 
 
 @pytest.fixture
-def get_delivery_points(auth_header, endpoints: ApiUrls, get_postal_code):
+def get_delivery_points(
+    auth_header, endpoints: ApiUrls, get_postal_code, get_city_code
+):
     def _get_delivery_points(city):
         return requests.get(
             url=endpoints.delivery_points(),
             headers=auth_header,
             params={
-                "postal_code": get_postal_code(city),
+                "postal_code": get_postal_code(get_city_code(city)),
             },
             timeout=100,
         ).json()
@@ -284,3 +301,13 @@ def order_repository(db_session):
 @pytest.fixture(scope="session")
 def token_repository(db_session):
     return TokenRepository(db_session)
+
+
+@pytest.fixture(scope="session")
+def city_repository(db_session):
+    return CityRepository(db_session)
+
+
+@pytest.fixture(scope="session")
+def postal_code_repository(db_session):
+    return PostalCodeRepository(db_session)
