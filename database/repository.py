@@ -1,13 +1,14 @@
 # pyright: reportReturnType=false
 from datetime import datetime, timedelta
 from typing import List
-from sqlalchemy import desc
+from sqlalchemy import desc, exists
 from sqlalchemy.orm import Session
 from database.models import (
     CityModel,
+    DeliveryPointModel,
     OrderModel,
     AuthTokenModel,
-    PostalCodeModel,
+    TariffModel,
 )
 
 
@@ -61,23 +62,25 @@ class TokenRepository:
 
 class CityRepository:
     def __init__(self, session: Session) -> None:
-        self.sesion = session
+        self.session = session
 
-    def write_city(self, cities) -> List[CityModel]:
+    def write_cities(self, cities) -> List[CityModel]:
         city_models = []
         for city_data in cities:
-            city = CityModel(**city_data)
-            city_models.append(city)
-            self.sesion.add(city)
-            self.sesion.commit()
-            self.sesion.refresh(city)
+            if not self.exists(city_data["city_uuid"]):
+                city = CityModel(**city_data)
+                city_models.append(city)
+                self.session.add(city)
+                self.session.commit()
+                self.session.refresh(city)
         return city_models
+
+    def exists(self, uuid):
+        return self.session.query(exists().where(CityModel.city_uuid == uuid)).scalar()
 
     def get_row_by_city(self, city: str) -> CityModel:
         return (
-            self.sesion.query(CityModel)
-            .where(CityModel.full_name.contains(city))
-            .first()
+            self.session.query(CityModel).where(CityModel.city.contains(city)).first()
         )
 
     def get_code_by_city(self, city: str) -> int | None:
@@ -85,26 +88,60 @@ class CityRepository:
         if city_row:
             return city_row.code
 
+    def all(self) -> List[CityModel]:
+        return self.session.query(CityModel).all()
 
-class PostalCodeRepository:
+
+class DeliveryPointRepository:
     def __init__(self, session: Session) -> None:
         self.session = session
 
-    def write_postal_code(self, postal_code_data) -> List[PostalCodeModel]:
-        postal_code_models = []
-        for postal_code in postal_code_data["postal_codes"]:
-            postal_code_model = PostalCodeModel(
-                city_code=postal_code_data["code"], postal_code=postal_code
-            )
-            postal_code_models.append(postal_code_model)
-            self.session.add(postal_code_model)
+    def write_delivery_points(
+        self, delivery_points, city_code: int
+    ) -> List[DeliveryPointModel]:
+        delivery_point_models = []
+        for point_data in delivery_points:
+            point_data["city_code"] = city_code
+            point = DeliveryPointModel(**point_data)
+            delivery_point_models.append(point)
+            self.session.add(point)
             self.session.commit()
-            self.session.refresh(postal_code_model)
-        return postal_code_models
+            self.session.refresh(point)
+        return delivery_point_models
 
-    def get_codes_by_city_code(self, city_code):
+    def get_delivery_points_by_city_code(self, city_code: int):
         return (
-            self.session.query(PostalCodeModel.postal_code)
-            .where(PostalCodeModel.city_code == city_code)
+            self.session.query(DeliveryPointModel)
+            .where(DeliveryPointModel.city_code == city_code)
             .all()
         )
+
+
+class TariffRepository:
+    def __init__(self, session: Session) -> None:
+        self.session = session
+
+    def write_tariff_list(self, tariff_data: list, from_city_code, to_city_code):
+        tariff_models = []
+        for tariff_payload in tariff_data:
+            tariff_payload["from_city_code"] = from_city_code
+            tariff_payload["to_city_code"] = to_city_code
+            tariff = TariffModel(**tariff_payload)
+            tariff_models.append(tariff)
+            self.session.add(tariff)
+            self.session.commit()
+            self.session.refresh(tariff)
+        return tariff_models
+
+    def get_tariff_list_by_city_codes(self, from_city_code, to_city_code):
+        return (
+            self.session.query(TariffModel)
+            .where(
+                TariffModel.from_city_code == from_city_code
+                and TariffModel.to_city_code == to_city_code
+            )
+            .all()
+        )
+
+    def all(self) -> List[TariffModel]:
+        return self.session.query(TariffModel).all()

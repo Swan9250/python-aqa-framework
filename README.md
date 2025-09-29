@@ -9,6 +9,8 @@
 * allure
 * selenium
 * sqlalchemy
+* alembic
+* Faker
 
 ## Simple UI test
 

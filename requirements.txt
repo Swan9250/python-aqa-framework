@@ -6,3 +6,5 @@ python-dotenv==1.1.1
 allure-pytest==2.15.0
 SQLAlchemy==2.0.43
 mysqlclient==2.2.7
+alembic==1.16.5
+Faker==37.8.0
