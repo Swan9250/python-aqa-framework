@@ -71,6 +71,7 @@ class CityModel(Base):
     payment_limit = Column(Float)
     country = Column(String(100))
     kladr_code = Column(BIGINT(unsigned=True))
+    delivery_points = relationship('DeliveryPointModel', back_populates="city")
 
     def to_dict(self):
         return {
@@ -105,6 +106,7 @@ class DeliveryPointModel(Base):
     __tablename__ = "delivery_points"
 
     code = Column(String(255), primary_key=True)
+    name = Column(String(255))
     uuid = Column(String(255), unique=True)
     address_comment = Column(String(255))
     nearest_station = Column(String(255))
@@ -138,7 +140,7 @@ class DeliveryPointModel(Base):
     distance = Column(INTEGER(unsigned=True))
     fulfillment = Column(Boolean)
     city_code = Column(INTEGER(unsigned=True), ForeignKey("cities.code"))
-    city = relationship("CityModel", backref="delivery_points")
+    city = relationship("CityModel", back_populates="delivery_points")
 
 
 def to_dict(self):
@@ -182,21 +184,26 @@ def to_dict(self):
 class TariffModel(Base):
     __tablename__ = "tariffs"
 
-    tariff_code = Column(INTEGER(unsigned=True), primary_key=True)
+    id = Column(Integer, autoincrement=True, primary_key=True)
     tariff_name = Column(String(255))
     tariff_description = Column(String(255))
-    delivery_mode = Column(Integer)
-    delivery_sum = Column(Float)
-    period_min = Column(Integer)
-    period_max = Column(Integer)
-    calendar_min = Column(Integer)
-    calendar_max = Column(Integer)
-    delivery_date_range = Column(JSON)
-    from_city_code = Column(INTEGER(unsigned=True), ForeignKey("cities.code"))
-    to_city_code = Column(INTEGER(unsigned=True), ForeignKey("cities.code"))
-    from_city = relationship(
-        "CityModel", foreign_keys=[from_city_code], backref="tariffs_from"
-    )
-    to_city = relationship(
-        "CityModel", foreign_keys=[to_city_code], backref="tariffs_to"
-    )
+    weight_min = Column(Float)
+    weight_max = Column(Float)
+    weight_calc_max = Column(Float)
+    length_min = Column(Integer)
+    length_max = Column(Integer)
+    width_min = Column(Integer)
+    width_max = Column(Integer)
+    height_min = Column(Integer)
+    height_max = Column(Integer)
+    delivery_modes = relationship('DeliveryModeModel', back_populates="tariff")
+
+class DeliveryModeModel(Base):
+    __tablename__ = "delivery_modes"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    delivery_mode = Column(String(255))
+    delivery_mode_name = Column(String(255))
+    tariff_code = Column(INTEGER(unsigned=True), unique=True)
+    tariff_id = Column(Integer, ForeignKey("tariffs.id"))
+    tariff = relationship("TariffModel", back_populates="delivery_modes")

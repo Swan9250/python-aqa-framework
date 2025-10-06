@@ -2,6 +2,7 @@
 # pyright: reportArgumentType=false
 # pyright: reportGeneralTypeIssues=false
 
+import json
 import random
 from typing import Callable, List
 import pytest
@@ -36,34 +37,24 @@ class LocationManager:
         self._city_payloads = city_payloads
         return self._city_payloads
 
-    def get_city_payload(self, city_name: str = None) -> CityModel:
-        if city_name is None:
-            return self.get_random_city_payload()
-        return self.get_city_payload_by_name(city_name)
+    def find_city_payload(self, **criteria) -> CityModel | None:
+        payloads = self.get_city_payloads()
+        if criteria:
+            for payload in payloads:
+                if all(getattr(payload, key) == value for key, value in criteria.items()):
+                    return payload
+            return None
+        return random.choice(payloads)
 
-    def get_city_payload_by_name(self, name: str) -> CityModel | None:
-        city_payloads = self.get_city_payloads()
-        for city_payload in city_payloads:
-            if name in city_payload.city:
-                return city_payload
-        pytest.raises("Fail to get city payload by city name")
-
-    def get_random_city_payload(self) -> dict:
-        return random.choice(self.get_city_payloads()).to_dict()
-
-    def get_delivery_points_by_city_code(
-        self, city_code: int
-    ) -> List[DeliveryPointModel]:
-        delivery_point_payloads = self.point_repo.get_delivery_points_by_city_code(
-            city_code
-        )
+    def find_city_points(self, city: CityModel) -> List[DeliveryPointModel]:
+        delivery_point_payloads = city.delivery_points
         if not delivery_point_payloads:
-            delivery_point_payloads = self.point_repo.write_delivery_points(
-                self._fetch_delivery_point_payloads(city_code), city_code
+            delivery_point_payloads = self.point_repo.write_points(
+                self._fetch_city_points(city.code), city.code
             )
         return delivery_point_payloads
 
-    def _fetch_delivery_point_payloads(self, city_code):
+    def _fetch_city_points(self, city_code):
         try:
             response = requests.get(
                 url=self.token_manager.endpoints.delivery_points(),
@@ -71,9 +62,12 @@ class LocationManager:
                 params={"city_code": city_code},
                 timeout=DEFAULT_REQUEST_TIMEOUT_S,
             )
+            response.raise_for_status()
             return response.json()
-        except (requests.RequestException, ValueError) as e:
-            pytest.raises(f"Fail to fetch delivery points from API: {e}")
+        except requests.RequestException:
+            pytest.raises(requests.RequestException)
+        except ValueError:
+            pytest.raises(ValueError)
 
     def _fetch_city_payloads(self):
         try:
@@ -84,8 +78,10 @@ class LocationManager:
             )
             response.raise_for_status()
             return response.json()
-        except (requests.RequestException, ValueError) as e:
-            pytest.raises(f"Fail to fetch cities from API: {e}")
+        except requests.RequestException:
+            pytest.raises(requests.RequestException)
+        except ValueError:
+            pytest.raises(ValueError)
 
 
 @pytest.fixture(scope="session")
@@ -101,20 +97,12 @@ def location_manager(
 def city_payload(
     location_manager: LocationManager,
 ) -> Callable:
-    return location_manager.get_city_payload
-
-
-@pytest.fixture(scope="session")
-def city_code(city_payload):
-    def _city_code(city_name: str = None) -> int:
-        return city_payload(city_name).code
-
-    return _city_code
+    return location_manager.find_city_payload
 
 
 @pytest.fixture
-def get_delivery_points_by_city_code(location_manager: LocationManager, city_code):
-    def _get_delivery_points_by_city_code(city_name: str = None):
-        return location_manager.get_delivery_points_by_city_code(city_code(city_name))
+def get_city_delivery_points(location_manager: LocationManager):
+    def _get_city_delivery_points(city: CityModel):
+        return location_manager.find_city_points(city)
 
-    return _get_delivery_points_by_city_code
+    return _get_city_delivery_points

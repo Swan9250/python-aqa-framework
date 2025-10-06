@@ -6,108 +6,122 @@ from enums.city import City
 from tests.api.constants import DEFAULT_REQUEST_TIMEOUT_S, DEFAULT_WAIT_TIMEOUT_S
 
 
-@allure.feature("CDEK API status code validation")
-@allure.story("location")
-@allure.title("Check suggest cities response is ok")
+@allure.feature("Валидация http статус-кодов СДЕК API")
+@allure.story("Локации")
+@allure.title("Проверка подборки локации по названию города")
 @pytest.mark.parametrize("city", [city.value for city in City])
 def test_location_suggest_cities(auth_header, endpoints, city, request):
-    with allure.step("Send request to API"):
+    with allure.step("Отправка запроса к API"):
         request_params = {"name": city}
-        request.node.user_properties.append(("request_params", request_params))
         response = requests.get(
             url=endpoints.suggest_cities(),
             headers=auth_header,
             params=request_params,
             timeout=DEFAULT_REQUEST_TIMEOUT_S,
         )
-        request.node.user_properties.append(("response", response))
-    with allure.step("Check Status Code < 400"):
+    with allure.step("Проверка: статус-код < 400"):
         assert response.ok
+    with allure.step("Сбор данных для allure отчёта"):
+        request.node.user_properties.append(("request_params", request_params))
+        request.node.user_properties.append(("response", response))
 
 
-@allure.story("location")
-@allure.title("Check get regions info response is ok")
+@allure.feature("Валидация http статус-кодов СДЕК API")
+@allure.story("Локации")
+@allure.title("Проверка получения списка регионов")
 def test_location_regions(auth_header, endpoints, request):
-    with allure.step("Send request to API"):
+    with allure.step("Отправка запроса к API"):
         response = requests.get(
             url=endpoints.regions(),
             headers=auth_header,
             timeout=DEFAULT_REQUEST_TIMEOUT_S,
         )
-        request.node.user_properties.append(("response", response))
-    with allure.step("Check Status Code < 400"):
+    with allure.step("Проверка: статус-код < 400"):
         assert response.ok
+    with allure.step("Сбор данных для allure отчёта"):
+        request.node.user_properties.append(("response", response))
 
 
-@allure.story("location")
-@allure.title("Check get location postal codes response is ok")
-def test_location_postal_codes(auth_header, endpoints, city_code, city, request):
-    with allure.step("Send request to API"):
-        request_params = {"code": city_code(city)}
-        request.node.user_properties.append(("request_params", request_params))
+@allure.feature("Валидация http статус-кодов СДЕК API")
+@allure.story("Локации")
+@allure.title("Проверка получения почтовых индексов города")
+def test_location_postal_codes(auth_header, endpoints, city_payload, city, request):
+    with allure.step("Отправка запроса к API"):
+        request_params = {"code": city_payload(city=city).code}
         response = requests.get(
             url=endpoints.postal_codes(),
             headers=auth_header,
             params=request_params,
             timeout=DEFAULT_REQUEST_TIMEOUT_S,
         )
-        request.node.user_properties.append(("response", response))
-    with allure.step("Check Status Code < 400"):
+    with allure.step("Проверка: статус-код < 400"):
         assert response.ok
+    with allure.step("Сбор данных для allure отчёта"):
+        request.node.user_properties.append(("request_params", request_params))
+        request.node.user_properties.append(("response", response))
 
 
-@allure.story("location")
-@allure.title("Check get location cities response is ok")
+@allure.feature("Валидация http статус-кодов СДЕК API")
+@allure.story("Локации")
+@allure.title("Проверка получения списка населённых пунктов")
 def test_location_cities(auth_header, endpoints, request):
-    with allure.step("Send request to API"):
+    with allure.step("Отправка запроса к API"):
         response = requests.get(
             url=endpoints.cities(),
             headers=auth_header,
             timeout=DEFAULT_REQUEST_TIMEOUT_S,
         )
-        request.node.user_properties.append(("response", response))
-    with allure.step("Check Status Code < 400"):
+    with allure.step("Проверка: статус-код < 400"):
         assert response.ok
+    with allure.step("Сбор данных для allure отчёта"):
+        request.node.user_properties.append(("response", response))
 
 
-# @pytest.mark.parametrize("delivery_point", [DeliveryPoint("PSK1", 180005, True)])
-@allure.story("location")
+@allure.feature("Валидация http статус-кодов СДЕК API")
+@allure.story("Локации")
+@allure.title("Проверка получения списка офисов")
 def test_delivery_points(auth_header, endpoints, request):
-    with allure.step("Send request to API"):
+    with allure.step("Отправка запроса к API"):
         response = requests.get(
             url=endpoints.delivery_points(),
             headers=auth_header,
             timeout=DEFAULT_REQUEST_TIMEOUT_S,
         )
-        request.node.user_properties.append(("response", response))
-    with allure.step("Check Status Code < 400"):
+    with allure.step("Проверка: статус-код < 400"):
         assert response.ok
+    with allure.step("Сбор данных для allure отчёта"):
+        request.node.user_properties.append(("response", response))
 
 
-@allure.story("calculation")
-@allure.title("Check tariff list response is ok")
+@allure.feature("Валидация http статус-кодов СДЕК API")
+@allure.story("Расчёт стоимости доставки")
+@allure.title("Проверка расчёта по доступным тарифам")
 def test_calculate_tariff_list(auth_header, endpoints, city_payload, packages, request):
-    with allure.step("Collect data: location from, location to"):
+    with allure.step("Отправка запроса к API"):
         from_location = city_payload()
         to_location = city_payload()
-    with allure.step("Send request to API"):
+        delivery_packages = packages(from_location, to_location)
         request_params = {
-            "from_location": from_location,
-            "to_location": to_location,
-            "packages": packages,
+            "from_location": from_location.to_dict(),
+            "to_location": to_location.to_dict(),
+            "packages": delivery_packages,
         }
-        request.node.user_properties.append(("request_params", request_params))
         response = requests.post(
             url=endpoints.tariff_list(),
             headers=auth_header,
             json=request_params,
             timeout=DEFAULT_REQUEST_TIMEOUT_S,
         )
-        request.node.user_properties.append(("response", response))
-    with allure.step("Check Status Code < 400"):
+    with allure.step("Проверка: статус-код < 400"):
         assert response.ok
+    with allure.step("Сбор данных для allure отчёта"):
+        request.node.user_properties.append(("request_params", request_params))
+        request.node.user_properties.append(("response", response))
 
 
+@allure.feature("Валидация http статус-кодов СДЕК API")
+@allure.story("Расчёт стоимости доставки")
+@allure.title("Проверка расчёта по коду тарифа")
 def test_calculate_tariff(
     auth_header,
     endpoints,
@@ -119,14 +133,15 @@ def test_calculate_tariff(
     with allure.step("Collect data: tariff_code, location from, location to"):
         from_location = city_payload()
         to_location = city_payload()
-        tariff_code = tariff_code(from_location, to_location, packages)
+        delivery_packages = packages(from_location, to_location)
     with allure.step("Send request to API"):
         request_params = {
             "tariff_code": tariff_code,
-            "from_location": from_location,
-            "to_location": to_location,
-            "packages": packages,
+            "from_location": from_location.to_dict(),
+            "to_location": to_location.to_dict(),
+            "packages": delivery_packages,
         }
+        print(request_params["packages"])
         request.node.user_properties.append(("request_params", request_params))
         response = requests.post(
             url=endpoints.tariff(),
@@ -134,8 +149,15 @@ def test_calculate_tariff(
             json=request_params,
             timeout=DEFAULT_REQUEST_TIMEOUT_S,
         )
-        request.node.user_properties.append(("response", response))
         print(response.json())
+        errors = response.json().get("errors")
+        if errors:
+            for error in errors:
+                if error["code"] == "err_result_service_empty":
+                    pytest.xfail(error["message"])
+                else:
+                    assert response.ok
+        request.node.user_properties.append(("response", response))
     with allure.step("Check Status Code < 400"):
         assert response.ok
 
@@ -165,18 +187,21 @@ def test_calculate_tariff_and_service(
     attach_info(response)
 
 
-def test_all_tariffs(auth_header, endpoints, attach_info):
+def test_all_tariffs(auth_header, endpoints, delivery_mode_repository):
     with allure.step("Send request to API"):
         response = requests.get(
             url=endpoints.all_tariffs(),
             headers=auth_header,
             timeout=DEFAULT_REQUEST_TIMEOUT_S,
         )
-
+        # print(response.json()["tariff_codes"])
+        mode_list = []
+        for tariff in response.json()["tariff_codes"]:
+            mode_list.extend(tariff["delivery_modes"])
+        print(mode_list)
+        delivery_mode_repository.write_mode_list(mode_list)
     with allure.step("Check Status Code < 400"):
         assert response.ok
-
-    attach_info(response)
 
 
 def test_international_package_restrictions(

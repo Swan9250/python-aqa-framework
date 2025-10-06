@@ -5,6 +5,7 @@ from sqlalchemy import desc, exists
 from sqlalchemy.orm import Session
 from database.models import (
     CityModel,
+    DeliveryModeModel,
     DeliveryPointModel,
     OrderModel,
     AuthTokenModel,
@@ -96,7 +97,7 @@ class DeliveryPointRepository:
     def __init__(self, session: Session) -> None:
         self.session = session
 
-    def write_delivery_points(
+    def write_points(
         self, delivery_points, city_code: int
     ) -> List[DeliveryPointModel]:
         delivery_point_models = []
@@ -109,23 +110,14 @@ class DeliveryPointRepository:
             self.session.refresh(point)
         return delivery_point_models
 
-    def get_delivery_points_by_city_code(self, city_code: int):
-        return (
-            self.session.query(DeliveryPointModel)
-            .where(DeliveryPointModel.city_code == city_code)
-            .all()
-        )
-
 
 class TariffRepository:
     def __init__(self, session: Session) -> None:
         self.session = session
 
-    def write_tariff_list(self, tariff_data: list, from_city_code, to_city_code):
+    def write_tariff_list(self, tariff_payload_list: list):
         tariff_models = []
-        for tariff_payload in tariff_data:
-            tariff_payload["from_city_code"] = from_city_code
-            tariff_payload["to_city_code"] = to_city_code
+        for tariff_payload in tariff_payload_list:
             tariff = TariffModel(**tariff_payload)
             tariff_models.append(tariff)
             self.session.add(tariff)
@@ -145,3 +137,20 @@ class TariffRepository:
 
     def all(self) -> List[TariffModel]:
         return self.session.query(TariffModel).all()
+
+class DeliveryModeRepository:
+    def __init__(self, session: Session) -> None:
+        self.session = session
+
+    def all(self) -> List[DeliveryModeModel]:
+        return self.session.query(DeliveryModeModel)
+
+    def write_mode_list(self, mode_payload_list) -> List[DeliveryModeModel]:
+        mode_list = []
+        for payload in mode_payload_list:
+            mode = DeliveryModeModel(**payload)
+            mode_list.append(mode)
+            self.session.add(mode)
+            self.session.commit()
+            self.session.refresh(mode)
+        return mode_list

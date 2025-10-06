@@ -15,3 +15,5 @@ class CountryCode(Enum):
     AE = "AE"
     FI = "FI"
     LU = "LU"
+    JP = "JP"
+    NO = "NO"

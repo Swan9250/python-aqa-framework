@@ -34,13 +34,13 @@ class TokenManager:
         if self._token is None:
             self._token = self.get_token()
             if not self._token:
-                raise ValueError("Authentification token not available")
+                raise ValueError("Authorization token not available")
         return self._token
 
     @property
     def auth_header(self) -> dict[str, str]:
         if self._auth_header is None:
-            self._auth_header = {"Authentification": f"Bearer {self.token}"}
+            self._auth_header = {"Authorization": f"Bearer {self.token}"}
         return self._auth_header.copy()
 
     def _fetch_new_token(self) -> dict:

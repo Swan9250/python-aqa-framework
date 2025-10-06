@@ -3,6 +3,7 @@ import pytest
 from database.db_session import ScopedSession, engine
 from database.repository import (
     CityRepository,
+    DeliveryModeRepository,
     DeliveryPointRepository,
     OrderRepository,
     TariffRepository,
@@ -45,3 +46,7 @@ def delivery_point_repository(db_session):
 @pytest.fixture(scope="session")
 def tariff_repository(db_session):
     return TariffRepository(db_session)
+
+@pytest.fixture(scope="session")
+def delivery_mode_repository(db_session):
+    return DeliveryModeRepository(db_session)
